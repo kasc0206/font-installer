@@ -4,7 +4,7 @@
 ![Platform: macOS | Linux | Windows](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-blue)
 
 > 一键安装公文写作常用中文字体，跨平台支持 macOS、Linux、Windows。
-
+>
 > 🔒 字体文件已使用 **AES-256-CBC 加密** 存储在仓库中，安装时自动解密，以规避 GitHub 自动版权扫描。
 
 ---
@@ -12,7 +12,7 @@
 ## 包含的字体
 
 | 混淆文件名 | 字体名称 | 说明 |
-|-----------|---------|------|
+| ----------- | --------- | ----- |
 | `font_01` | 仿宋\_GB2312 | 仿宋 GB2312 版本 |
 | `font_02` | 华文中宋 | 中宋体 |
 | `font_03` | 方正仿宋\_GBK | **公文正文**常用字体 (GBK) |
@@ -43,7 +43,7 @@ curl -fsSL https://raw.githubusercontent.com/kasc0206/font-installer/main/tools/
 
 > 脚本会自动下载工具包 → 解密字体 → 安装到 `~/Library/Fonts`(macOS) 或 `~/.local/share/fonts`(Linux) → 清理临时文件。
 
-### Windows
+### Windows (一键安装)
 
 在 PowerShell 中粘贴并运行以下命令：
 
@@ -52,6 +52,7 @@ powershell -c "iex ((New-Object System.Net.WebClient).DownloadString('https://ra
 ```
 
 > **Windows 执行策略**：如果提示无法执行，请先运行：
+>
 > ```powershell
 > Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 > ```
@@ -62,14 +63,14 @@ powershell -c "iex ((New-Object System.Net.WebClient).DownloadString('https://ra
 
 如果你已经克隆了本仓库，也可以直接运行本地脚本：
 
-### macOS / Linux
+### 本地安装 (macOS / Linux)
 
 ```bash
 chmod +x install.sh
 ./install.sh
 ```
 
-### Windows
+### 本地安装 (Windows)
 
 ```powershell
 .\install.ps1
@@ -90,7 +91,7 @@ chmod +x install.sh
 ## 工作原理
 
 | 系统 | 安装目录 | 特点 |
-|------|---------|------|
+| ----- | -------- | ----- |
 | **macOS** | `~/Library/Fonts/` | 用户级安装，无需 `sudo` |
 | **Linux** | `~/.local/share/fonts/` | 用户级安装，自动运行 `fc-cache` |
 | **Windows** | `%LOCALAPPDATA%\Microsoft\Windows\Fonts\` | 用户级安装，自动注册到注册表 |
@@ -116,7 +117,7 @@ chmod +x install.sh
 ### macOS
 
 | 版本 | 发行年份 | OpenSSL / LibreSSL | 兼容性 |
-|------|---------|-------------------|:------:|
+| ----- | -------- | ----------------- | :----: |
 | macOS 15 Sequoia | 2024 | OpenSSL 3.x | ✅ |
 | macOS 14 Sonoma | 2023 | LibreSSL 3.3 | ✅ |
 | macOS 13 Ventura | 2022 | LibreSSL 3.3 | ✅ |
@@ -138,7 +139,7 @@ chmod +x install.sh
 ### Linux
 
 | 发行版 | 发行年份 | OpenSSL 版本 | 兼容性 |
-|-------|---------|-------------|:------:|
+| ------ | ------- | ---------- | :----: |
 | Ubuntu 24.04 | 2024 | 3.x | ✅ |
 | Ubuntu 22.04 | 2022 | 3.x | ✅ |
 | Ubuntu 20.04 | 2020 | 1.1.1 | ✅ |
@@ -166,7 +167,7 @@ chmod +x install.sh
 ### Windows
 
 | 版本 | .NET 版本 | PowerShell | 兼容性 |
-|------|-----------|-----------|:------:|
+| ----- | --------- | --------- | :----: |
 | Windows 11 | .NET 6.0+ | PS 5.1 / PS 7+ | ✅ |
 | Windows 10 21H2+ | .NET 4.8+ | PS 5.1 | ✅ |
 | Windows 10 1809+ | .NET 4.7.2+ | PS 5.1 | ✅ |
@@ -185,7 +186,7 @@ chmod +x install.sh
 ### 技术要求
 
 | 组件 | 最低版本 | 说明 |
-|------|---------|------|
+| ----- | ------- | ---- |
 | **OpenSSL** | 0.9.8+ (2005) | install.sh 使用，macOS/Linux 自带或包管理器安装 |
 | **Bash** | 3.0+ (2004) | macOS 3.2 / Linux 4.x+ |
 | **PowerShell** | 2.0+ (2009) | install.ps1 使用，Windows 自带 |
@@ -195,7 +196,7 @@ chmod +x install.sh
 
 ## 目录结构
 
-```
+```text
 font-installer/
 ├── install.sh              # macOS / Linux 安装脚本（含解密功能）
 ├── install.ps1             # Windows 安装脚本（含解密功能）
