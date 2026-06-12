@@ -119,28 +119,28 @@ function Decrypt-OpenSSL {
 
         # D1 = MD5(password + salt)
         $d1Input = New-Object byte[] ($passwordBytes.Length + $salt.Length)
-        [System.Buffer]::BlockCopy($passwordBytes, 0, $d1Input, 0, $passwordBytes.Length)
-        [System.Buffer]::BlockCopy($salt, 0, $d1Input, $passwordBytes.Length, $salt.Length)
+        [System.Array]::Copy($passwordBytes, 0, $d1Input, 0, $passwordBytes.Length)
+        [System.Array]::Copy($salt, 0, $d1Input, $passwordBytes.Length, $salt.Length)
         $d1 = $md5.ComputeHash($d1Input)
 
         # D2 = MD5(D1 + password + salt)
         $d2Input = New-Object byte[] ($d1.Length + $passwordBytes.Length + $salt.Length)
-        [System.Buffer]::BlockCopy($d1, 0, $d2Input, 0, $d1.Length)
-        [System.Buffer]::BlockCopy($passwordBytes, 0, $d2Input, $d1.Length, $passwordBytes.Length)
-        [System.Buffer]::BlockCopy($salt, 0, $d2Input, ($d1.Length + $passwordBytes.Length), $salt.Length)
+        [System.Array]::Copy($d1, 0, $d2Input, 0, $d1.Length)
+        [System.Array]::Copy($passwordBytes, 0, $d2Input, $d1.Length, $passwordBytes.Length)
+        [System.Array]::Copy($salt, 0, $d2Input, ($d1.Length + $passwordBytes.Length), $salt.Length)
         $d2 = $md5.ComputeHash($d2Input)
 
         # D3 = MD5(D2 + password + salt)
         $d3Input = New-Object byte[] ($d2.Length + $passwordBytes.Length + $salt.Length)
-        [System.Buffer]::BlockCopy($d2, 0, $d3Input, 0, $d2.Length)
-        [System.Buffer]::BlockCopy($passwordBytes, 0, $d3Input, $d2.Length, $passwordBytes.Length)
-        [System.Buffer]::BlockCopy($salt, 0, $d3Input, ($d2.Length + $passwordBytes.Length), $salt.Length)
+        [System.Array]::Copy($d2, 0, $d3Input, 0, $d2.Length)
+        [System.Array]::Copy($passwordBytes, 0, $d3Input, $d2.Length, $passwordBytes.Length)
+        [System.Array]::Copy($salt, 0, $d3Input, ($d2.Length + $passwordBytes.Length), $salt.Length)
         $d3 = $md5.ComputeHash($d3Input)
 
         # 组装密钥 (32字节) 和 IV (16字节)
         $key = New-Object byte[] 32
-        [System.Buffer]::BlockCopy($d1, 0, $key, 0, 16)
-        [System.Buffer]::BlockCopy($d2, 0, $key, 16, 16)
+        [System.Array]::Copy($d1, 0, $key, 0, 16)
+        [System.Array]::Copy($d2, 0, $key, 16, 16)
         $iv = $d3
 
         # AES-CBC 解密

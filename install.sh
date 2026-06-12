@@ -201,7 +201,7 @@ main() {
             file_type_raw=$(file "$decrypted_file" 2>/dev/null || true)
             if ! echo "$file_type_raw" | grep -qiE "TrueType|OpenType"; then
                 echo -e "  ${RED}[失败]${NC} ${font_filename}（解密结果异常，文件可能已损坏）"
-                ((FAILED++))
+                FAILED=$((FAILED + 1))
                 rm -f "$decrypted_file"
                 continue
             fi
@@ -211,7 +211,7 @@ main() {
             if [[ -f "$target" ]]; then
                 if [[ "$(md5sum_compact "$decrypted_file")" == "$(md5sum_compact "$target")" ]]; then
                     echo -e "  ${YELLOW}[跳过]${NC} ${font_filename}（已安装且内容相同）"
-                    ((SKIPPED++))
+                    SKIPPED=$((SKIPPED + 1))
                     rm -f "$decrypted_file"
                     continue
                 else
@@ -222,15 +222,15 @@ main() {
             fi
 
             if cp "$decrypted_file" "$target"; then
-                ((SUCCESS++))
+                SUCCESS=$((SUCCESS + 1))
             else
                 echo -e "  ${RED}[失败]${NC} ${font_filename}（复制失败）"
-                ((FAILED++))
+                FAILED=$((FAILED + 1))
             fi
             rm -f "$decrypted_file"
         else
             echo -e "  ${RED}[失败]${NC} ${font_filename}（解密失败）"
-            ((FAILED++))
+            FAILED=$((FAILED + 1))
         fi
     done
 
