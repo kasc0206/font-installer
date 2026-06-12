@@ -194,6 +194,21 @@ function Main {
 
     Write-Color "[信息] 发现 $Total 个加密字体文件" "Green"
 
+    # 加载文件名映射（混淆 → 原始文件名）
+    $MappingFile = Join-Path $Source "mapping.json"
+    $FontMap = @{}
+    if (Test-Path -Path $MappingFile) {
+        try {
+            $mappingJson = Get-Content -Path $MappingFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            $mappingJson.PSObject.Properties | ForEach-Object {
+                $FontMap[$_.Name] = $_.Value
+            }
+            Write-Color "[信息] 已加载字体文件名映射" "Cyan"
+        } catch {
+            Write-Color "[警告] 无法解析映射文件，将使用原始文件名" "Yellow"
+        }
+    }
+
     # 创建临时目录
     if (-not (Test-Path -Path $TempDir)) {
         New-Item -Path $TempDir -ItemType Directory -Force | Out-Null
@@ -214,8 +229,14 @@ function Main {
 
     foreach ($encFile in $EncFiles) {
         $EncFilename = $encFile.Name
-        # 去掉 .enc 后缀得到原始字体文件名
-        $FontFilename = $EncFilename -replace '\.enc$', ''
+        # 从加密文件名获取混淆键名（如 font_01.ttf.enc → font_01）
+        $FontKey = $EncFilename -replace '\.(ttf|ttc|otf)\.enc$', ''
+        # 通过映射获取原始文件名，无映射则使用原始加密文件名
+        if ($FontMap.ContainsKey($FontKey)) {
+            $FontFilename = $FontMap[$FontKey]
+        } else {
+            $FontFilename = $EncFilename -replace '\.enc$', ''
+        }
         $DecryptedPath = Join-Path $TempDir $FontFilename
         $TargetPath = Join-Path $FontInstallDir $FontFilename
 

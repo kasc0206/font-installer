@@ -178,6 +178,19 @@ main() {
     TEMP_DIR=$(mktemp -d "/tmp/font-installer.XXXXXXXXXX")
     echo -e "${CYAN}[信息] 临时解密目录: ${TEMP_DIR}${NC}"
 
+    # 加载文件名映射（混淆 → 原始文件名），兼容 bash 3.2
+    MAPPING_FILE="${SOURCE_DIR}/mapping.json"
+    MAPPING_TEMP="${TEMP_DIR}/font_mapping.txt"
+    if [[ -f "$MAPPING_FILE" ]]; then
+        if command -v jq &>/dev/null; then
+            jq -r 'to_entries[] | "\(.key)|\(.value)"' "$MAPPING_FILE" > "$MAPPING_TEMP" 2>/dev/null || true
+        else
+            grep -E '"[^"]+"\s*:\s*"[^"]+"' "$MAPPING_FILE" 2>/dev/null | \
+                sed 's/^[[:space:]]*"\([^"]*\)"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1|\2/' > "$MAPPING_TEMP" || true
+        fi
+        echo -e "${CYAN}[信息] 已加载字体文件名映射${NC}"
+    fi
+
     # 创建安装目录
     mkdir -p "$INSTALL_DIR"
 
@@ -191,7 +204,16 @@ main() {
 
     for enc_file in "${ENC_FILES[@]}"; do
         enc_basename=$(basename "$enc_file")
-        font_filename="${enc_basename%.enc}"
+        # 从加密文件名获取混淆键名（如 font_01.ttf.enc → font_01）
+        font_key="${enc_basename%.ttf.enc}"
+        font_key="${font_key%.ttc.enc}"
+        font_key="${font_key%.otf.enc}"
+        # 通过映射获取原始文件名，无映射则直接使用加密文件名（去 .enc）
+        orig_from_map=""
+        if [[ -f "$MAPPING_TEMP" ]]; then
+            orig_from_map=$(grep "^${font_key}|" "$MAPPING_TEMP" 2>/dev/null | head -1 | cut -d'|' -f2)
+        fi
+        font_filename="${orig_from_map:-${enc_basename%.enc}}"
         decrypted_file="${TEMP_DIR}/${font_filename}"
 
         echo -e "  ${CYAN}[解密]${NC} ${font_filename}"
