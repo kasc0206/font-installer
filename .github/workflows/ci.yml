@@ -199,14 +199,17 @@ jobs:
           $Result = Decrypt-OpenSSL -EncryptedFilePath $EncFile -OutputFilePath $OutFile -Password $KEY
           if (-not $Result) { exit 1 }
 
-          # 验证解密结果（检查文件头部）
+          # 验证解密结果（检查文件头部，兼容大小端序）
           $bytes = [System.IO.File]::ReadAllBytes($OutFile)
-          # TrueType 文件头: 0x00010000 或 0x74727565 (OTTO)
-          $header = [System.BitConverter]::ToUInt32($bytes, 0)
-          if ($header -eq 0x00010000 -or $header -eq 0x74727565) {
+          # TrueType 文件头: 00 01 00 00 (大端) 或 00 00 01 00 (小端)
+          # OpenType (CFF): 4F 54 54 4F = "OTTO"
+          $isTrueType = ($bytes[0] -eq 0x00 -and $bytes[1] -eq 0x01 -and $bytes[2] -eq 0x00 -and $bytes[3] -eq 0x00)
+          $isOpenType = ($bytes[0] -eq 0x4F -and $bytes[1] -eq 0x54 -and $bytes[2] -eq 0x54 -and $bytes[3] -eq 0x4F)
+          if ($isTrueType -or $isOpenType) {
             Write-Host "✓ 楷体_GB2312.ttf 解密验证通过" -ForegroundColor Green
           } else {
-            Write-Host "✗ 文件头异常: 0x$('{0:X8}' -f $header)" -ForegroundColor Red
+            $headerHex = "{0:X2}{1:X2}{2:X2}{3:X2}" -f $bytes[0],$bytes[1],$bytes[2],$bytes[3]
+            Write-Host "✗ 文件头异常: 0x$headerHex" -ForegroundColor Red
             exit 1
           }
 
@@ -263,8 +266,10 @@ jobs:
             $Total++
             $OutFile = "$TempDir\$($_.Name -replace '\.enc$','')"
             if (Decrypt-Font -EncPath $_.FullName -OutPath $OutFile -Key $KEY) {
-              $header = [System.BitConverter]::ToUInt32([System.IO.File]::ReadAllBytes($OutFile), 0)
-              if ($header -eq 0x00010000 -or $header -eq 0x74727565) {
+              $bytes = [System.IO.File]::ReadAllBytes($OutFile)
+              $isTrueType = ($bytes[0] -eq 0x00 -and $bytes[1] -eq 0x01 -and $bytes[2] -eq 0x00 -and $bytes[3] -eq 0x00)
+              $isOpenType = ($bytes[0] -eq 0x4F -and $bytes[1] -eq 0x54 -and $bytes[2] -eq 0x54 -and $bytes[3] -eq 0x4F)
+              if ($isTrueType -or $isOpenType) {
                 Write-Host "  ✓ $($_.Name)" -ForegroundColor Green
                 $Pass++
               } else {
