@@ -1,0 +1,293 @@
+# ============================================================================
+# CI/CD Pipeline — 公文常用字体安装工具
+# 跨平台测试：解密验证 + 脚本语法检查
+# ============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ========== macOS / Linux: install.sh 测试 ==========
+  test-unix:
+    name: "Test install.sh (${{ matrix.os }})"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-22.04, macos-latest, macos-13]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 检查 OpenSSL 版本
+        run: |
+          echo "OpenSSL version:"
+          openssl version
+          which openssl
+
+      - name: 检查 Bash 版本
+        run: |
+          bash --version | head -1
+
+      - name: 测试解密单个字体
+        run: |
+          KEY="69857582c8a1fd0d89ddd68b832c7f85"
+          mkdir -p /tmp/font-test
+
+          # 选取一个字体测试解密
+          ENC_FILE="fonts/楷体_GB2312.ttf.enc"
+          echo "解密: $ENC_FILE"
+
+          # 探测 -md 支持
+          if echo "probe" | openssl enc -aes-256-cbc -md md5 -salt -pass pass:x -out /dev/null 2>/dev/null; then
+            echo "使用 -md md5 解密"
+            openssl enc -d -aes-256-cbc -md md5 -salt \
+              -in "$ENC_FILE" \
+              -out /tmp/font-test/楷体_GB2312.ttf \
+              -pass pass:"$KEY"
+          else
+            echo "使用默认摘要解密"
+            openssl enc -d -aes-256-cbc -salt \
+              -in "$ENC_FILE" \
+              -out /tmp/font-test/楷体_GB2312.ttf \
+              -pass pass:"$KEY"
+          fi
+
+          # 验证文件类型
+          file /tmp/font-test/楷体_GB2312.ttf
+          file /tmp/font-test/楷体_GB2312.ttf | grep -qiE "TrueType|OpenType"
+          echo "✓ 解密验证通过"
+
+      - name: 批量解密所有字体并验证
+        run: |
+          KEY="69857582c8a1fd0d89ddd68b832c7f85"
+          mkdir -p /tmp/font-test-all
+
+          # 探测 -md 支持
+          MD_FLAG=""
+          if echo "probe" | openssl enc -aes-256-cbc -md md5 -salt -pass pass:x -out /dev/null 2>/dev/null; then
+            MD_FLAG="-md md5"
+          fi
+
+          TOTAL=0
+          PASS=0
+          FAIL=0
+          for f in fonts/*.ttf.enc fonts/*.ttc.enc fonts/*.otf.enc; do
+            [ -f "$f" ] || continue
+            TOTAL=$((TOTAL + 1))
+            OUT="/tmp/font-test-all/$(basename ${f%.enc})"
+            openssl enc -d -aes-256-cbc $MD_FLAG -salt \
+              -in "$f" -out "$OUT" -pass pass:"$KEY" 2>/dev/null
+            if file "$OUT" | grep -qiE "TrueType|OpenType"; then
+              echo "  ✓ $(basename $f)"
+              PASS=$((PASS + 1))
+            else
+              echo "  ✗ $(basename $f) — 解密结果异常"
+              FAIL=$((FAIL + 1))
+            fi
+          done
+          echo ""
+          echo "结果: 总计 $TOTAL, 通过 $PASS, 失败 $FAIL"
+          [ $FAIL -eq 0 ] || exit 1
+
+      - name: 测试 install.sh 语法检查
+        run: |
+          bash -n install.sh
+          echo "✓ install.sh 语法检查通过"
+
+      - name: 模拟运行 install.sh（解密模式，安装到临时目录）
+        run: |
+          # 以 dry-run 方式测试脚本流程
+          # 备份原安装目录
+          ORIG_HOME="$HOME"
+          export HOME="/tmp/fake-home-for-test"
+          mkdir -p "$HOME"
+
+          bash install.sh --source "$PWD/fonts" 2>&1
+
+          echo ""
+          echo "=== 验证安装结果 ==="
+          INSTALLED_COUNT=$(find "$HOME" -name "*.ttf" 2>/dev/null | wc -l | tr -d ' ')
+          echo "安装的字体数: $INSTALLED_COUNT"
+          [ "$INSTALLED_COUNT" -gt 0 ] || exit 1
+
+  # ========== Windows: install.ps1 测试 ==========
+  test-windows:
+    name: "Test install.ps1 (windows-latest)"
+    runs-on: windows-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 检查 PowerShell 版本
+        shell: pwsh
+        run: $PSVersionTable
+
+      - name: 测试 PowerShell 解密函数
+        shell: pwsh
+        run: |
+          # 直接导入并测试解密函数
+          $KEY = "69857582c8a1fd0d89ddd68b832c7f85"
+          $TempDir = "$env:TEMP\font-ci-test"
+          New-Item -Path $TempDir -ItemType Directory -Force | Out-Null
+
+          # 从 install.ps1 中提取 Decrypt-OpenSSL 函数并执行
+          . .\install.ps1 -Help *>$null
+
+          # 直接复制 EVP_BytesToKey 解密逻辑进行测试
+          function Decrypt-OpenSSL {
+            param(
+              [string]$EncryptedFilePath,
+              [string]$OutputFilePath,
+              [string]$Password
+            )
+            try {
+              $encryptedBytes = [System.IO.File]::ReadAllBytes($EncryptedFilePath)
+              if ($encryptedBytes.Length -lt 16) { throw "文件太短" }
+              $magic = [System.Text.Encoding]::ASCII.GetString($encryptedBytes[0..7])
+              if ($magic -ne "Salted__") { throw "不是 OpenSSL 格式" }
+              $salt = $encryptedBytes[8..15]
+              $ciphertext = $encryptedBytes[16..($encryptedBytes.Length - 1)]
+              $passwordBytes = [System.Text.Encoding]::UTF8.GetBytes($Password)
+              $md5 = [System.Security.Cryptography.MD5]::Create()
+
+              # D1 = MD5(password + salt)
+              $d1Input = New-Object byte[] ($passwordBytes.Length + $salt.Length)
+              [System.Buffer]::BlockCopy($passwordBytes, 0, $d1Input, 0, $passwordBytes.Length)
+              [System.Buffer]::BlockCopy($salt, 0, $d1Input, $passwordBytes.Length, $salt.Length)
+              $d1 = $md5.ComputeHash($d1Input)
+              # D2 = MD5(D1 + password + salt)
+              $d2Input = New-Object byte[] ($d1.Length + $passwordBytes.Length + $salt.Length)
+              [System.Buffer]::BlockCopy($d1, 0, $d2Input, 0, $d1.Length)
+              [System.Buffer]::BlockCopy($passwordBytes, 0, $d2Input, $d1.Length, $passwordBytes.Length)
+              [System.Buffer]::BlockCopy($salt, 0, $d2Input, ($d1.Length + $passwordBytes.Length), $salt.Length)
+              $d2 = $md5.ComputeHash($d2Input)
+              # D3 = MD5(D2 + password + salt)
+              $d3Input = New-Object byte[] ($d2.Length + $passwordBytes.Length + $salt.Length)
+              [System.Buffer]::BlockCopy($d2, 0, $d3Input, 0, $d2.Length)
+              [System.Buffer]::BlockCopy($passwordBytes, 0, $d3Input, $d2.Length, $passwordBytes.Length)
+              [System.Buffer]::BlockCopy($salt, 0, $d3Input, ($d2.Length + $passwordBytes.Length), $salt.Length)
+              $d3 = $md5.ComputeHash($d3Input)
+              $key = New-Object byte[] 32
+              [System.Buffer]::BlockCopy($d1, 0, $key, 0, 16)
+              [System.Buffer]::BlockCopy($d2, 0, $key, 16, 16)
+              $iv = $d3
+              $aes = [System.Security.Cryptography.Aes]::Create()
+              $aes.Key = $key; $aes.IV = $iv
+              $aes.Mode = [System.Security.Cryptography.CipherMode]::CBC
+              $aes.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
+              $decryptor = $aes.CreateDecryptor()
+              $decryptedBytes = $decryptor.TransformFinalBlock($ciphertext, 0, $ciphertext.Length)
+              [System.IO.File]::WriteAllBytes($OutputFilePath, $decryptedBytes)
+              return $true
+            } catch {
+              Write-Host "解密错误: $_" -ForegroundColor Red
+              return $false
+            }
+          }
+
+          # 测试解密单个字体
+          $EncFile = "fonts\楷体_GB2312.ttf.enc"
+          $OutFile = "$TempDir\楷体_GB2312.ttf"
+          $Result = Decrypt-OpenSSL -EncryptedFilePath $EncFile -OutputFilePath $OutFile -Password $KEY
+          if (-not $Result) { exit 1 }
+
+          # 验证解密结果（检查文件头部）
+          $bytes = [System.IO.File]::ReadAllBytes($OutFile)
+          # TrueType 文件头: 0x00010000 或 0x74727565 (OTTO)
+          $header = [System.BitConverter]::ToUInt32($bytes, 0)
+          if ($header -eq 0x00010000 -or $header -eq 0x74727565) {
+            Write-Host "✓ 楷体_GB2312.ttf 解密验证通过" -ForegroundColor Green
+          } else {
+            Write-Host "✗ 文件头异常: 0x$('{0:X8}' -f $header)" -ForegroundColor Red
+            exit 1
+          }
+
+      - name: 批量解密所有字体并验证
+        shell: pwsh
+        run: |
+          $KEY = "69857582c8a1fd0d89ddd68b832c7f85"
+          $TempDir = "$env:TEMP\font-ci-batch"
+          New-Item -Path $TempDir -ItemType Directory -Force | Out-Null
+
+          function Decrypt-Font {
+            param($EncPath, $OutPath, $Key)
+            $bytes = [System.IO.File]::ReadAllBytes($EncPath)
+            if ($bytes.Length -lt 16) { return $false }
+            $salt = $bytes[8..15]
+            $cipher = $bytes[16..($bytes.Length-1)]
+            $pwd = [System.Text.Encoding]::UTF8.GetBytes($Key)
+            $md5 = [System.Security.Cryptography.MD5]::Create()
+
+            $d1Input = New-Object byte[] ($pwd.Length + $salt.Length)
+            [System.Buffer]::BlockCopy($pwd,0,$d1Input,0,$pwd.Length)
+            [System.Buffer]::BlockCopy($salt,0,$d1Input,$pwd.Length,$salt.Length)
+            $d1 = $md5.ComputeHash($d1Input)
+
+            $d2Input = New-Object byte[] ($d1.Length + $pwd.Length + $salt.Length)
+            [System.Buffer]::BlockCopy($d1,0,$d2Input,0,$d1.Length)
+            [System.Buffer]::BlockCopy($pwd,0,$d2Input,$d1.Length,$pwd.Length)
+            [System.Buffer]::BlockCopy($salt,0,$d2Input,($d1.Length+$pwd.Length),$salt.Length)
+            $d2 = $md5.ComputeHash($d2Input)
+
+            $d3Input = New-Object byte[] ($d2.Length + $pwd.Length + $salt.Length)
+            [System.Buffer]::BlockCopy($d2,0,$d3Input,0,$d2.Length)
+            [System.Buffer]::BlockCopy($pwd,0,$d3Input,$d2.Length,$pwd.Length)
+            [System.Buffer]::BlockCopy($salt,0,$d3Input,($d2.Length+$pwd.Length),$salt.Length)
+            $d3 = $md5.ComputeHash($d3Input)
+
+            $key = New-Object byte[] 32
+            [System.Buffer]::BlockCopy($d1,0,$key,0,16)
+            [System.Buffer]::BlockCopy($d2,0,$key,16,16)
+            $iv = $d3
+
+            $aes = [System.Security.Cryptography.Aes]::Create()
+            $aes.Key = $key; $aes.IV = $iv
+            $aes.Mode = [System.Security.Cryptography.CipherMode]::CBC
+            $aes.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
+            $dec = $aes.CreateDecryptor()
+            $out = $dec.TransformFinalBlock($cipher,0,$cipher.Length)
+            [System.IO.File]::WriteAllBytes($OutPath, $out)
+            return $true
+          }
+
+          $Total = 0; $Pass = 0; $Fail = 0
+          Get-ChildItem -Path fonts -Filter "*.ttf.enc" | ForEach-Object {
+            $Total++
+            $OutFile = "$TempDir\$($_.Name -replace '\.enc$','')"
+            if (Decrypt-Font -EncPath $_.FullName -OutPath $OutFile -Key $KEY) {
+              $header = [System.BitConverter]::ToUInt32([System.IO.File]::ReadAllBytes($OutFile), 0)
+              if ($header -eq 0x00010000 -or $header -eq 0x74727565) {
+                Write-Host "  ✓ $($_.Name)" -ForegroundColor Green
+                $Pass++
+              } else {
+                Write-Host "  ✗ $($_.Name) — 文件头异常" -ForegroundColor Red
+                $Fail++
+              }
+            } else {
+              Write-Host "  ✗ $($_.Name) — 解密失败" -ForegroundColor Red
+              $Fail++
+            }
+          }
+          Write-Host "`n结果: 总计 $Total, 通过 $Pass, 失败 $Fail"
+          if ($Fail -gt 0) { exit 1 }
+
+      - name: 检查 install.ps1 语法
+        shell: pwsh
+        run: |
+          $errors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseFile(
+            ".\install.ps1", [ref]$null, [ref]$errors)
+          if ($errors -and $errors.Count -gt 0) {
+            Write-Host "语法错误:" -ForegroundColor Red
+            $errors | ForEach-Object { Write-Host "$($_.Message)" -ForegroundColor Red }
+            exit 1
+          }
+          Write-Host "✓ install.ps1 语法检查通过" -ForegroundColor Green

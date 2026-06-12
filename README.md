@@ -201,7 +201,7 @@ font-installer/
 
 ```bash
 # 克隆仓库
-git clone https://github.com/YOUR_USERNAME/font-installer.git
+git clone https://github.com/kasc0206/font-installer.git
 cd font-installer
 
 # 一键安装（字体已包含在 fonts/ 目录中）
