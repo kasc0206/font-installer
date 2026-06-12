@@ -15,7 +15,7 @@ set -euo pipefail
 REPO_OWNER="kasc0206"
 REPO_NAME="font-installer"
 REPO_BRANCH="main"
-ARCHIVE_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${REPO_BRANCH}.tar.gz"
+ARCHIVE_URL="file:///tmp/tmp.lCAlUfpkJo/repo.tar.gz"
 
 # ---- 颜色输出 ----
 RED='\033[0;31m'
@@ -70,8 +70,8 @@ main() {
 
     tar xzf "${TEMP_DIR}/repo.tar.gz" -C "$TEMP_DIR" 2>/dev/null
 
-    # 查找解压后的目录
-    EXTRACTED_DIR=$(find "$TEMP_DIR" -maxdepth 1 -type d -name "${REPO_NAME}-*" | head -1)
+    # 查找解压后的目录（排除临时目录自身）
+    EXTRACTED_DIR=$(find "$TEMP_DIR" -maxdepth 1 -type d -name "${REPO_NAME}-${REPO_BRANCH}" ! -path "$TEMP_DIR" | head -1)
     if [[ -z "$EXTRACTED_DIR" ]]; then
         echo -e "${RED}[错误] 解压失败${NC}"
         exit 1

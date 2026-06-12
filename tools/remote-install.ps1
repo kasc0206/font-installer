@@ -59,8 +59,8 @@ function Main {
             throw "未找到 tar 命令，请使用 Windows 10 1803+ 或安装 tar"
         }
 
-        # 查找解压后的目录
-        $ExtractedDir = Get-ChildItem -Path $TempDir -Directory | Where-Object { $_.Name -like "${RepoName}-*" } | Select-Object -First 1
+        # 查找解压后的目录（排除临时目录自身）
+        $ExtractedDir = Get-ChildItem -Path $TempDir -Directory | Where-Object { $_.Name -eq "${RepoName}-${RepoBranch}" } | Select-Object -First 1
         if (-not $ExtractedDir) {
             throw "解压失败"
         }
