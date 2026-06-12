@@ -162,7 +162,7 @@ main() {
     ENC_FILES=()
     while IFS= read -r -d '' f; do
         ENC_FILES+=("$f")
-    done < <(find "$SOURCE_DIR" -type f \( -iname "*.ttf.enc" -o -iname "*.ttc.enc" -o -iname "*.otf.enc" \) -print0 | sort)
+    done < <(find "$SOURCE_DIR" -type f \( -iname "*.ttf.enc" -o -iname "*.ttc.enc" -o -iname "*.otf.enc" \) -print0)
 
     TOTAL=${#ENC_FILES[@]}
 
