@@ -125,6 +125,32 @@ jobs:
           echo "安装的字体数: $INSTALLED_COUNT"
           [ "$INSTALLED_COUNT" -gt 0 ] || exit 1
 
+      - name: 测试远程一键安装脚本语法
+        run: |
+          bash -n tools/remote-install.sh
+          echo "✓ tools/remote-install.sh 语法检查通过"
+
+      - name: 模拟远程安装流程（本地归档方式）
+        run: |
+          # 模拟远程安装：打包 → 解压 → 安装
+          TMP_DIR="/tmp/font-installer-remote-test"
+          mkdir -p "$TMP_DIR"
+          # 模拟下载的 tar.gz
+          tar czf "$TMP_DIR/repo.tar.gz" --exclude=.git . 2>/dev/null
+          tar xzf "$TMP_DIR/repo.tar.gz" -C "$TMP_DIR" 2>/dev/null
+          EXTRACTED_DIR=$(find "$TMP_DIR" -maxdepth 1 -type d -name "${PWD##*/}*" | head -1)
+          if [ -z "$EXTRACTED_DIR" ]; then
+            # 如果目录名不匹配，直接使用解压后的唯一目录
+            EXTRACTED_DIR=$(find "$TMP_DIR" -maxdepth 1 -type d ! -path "$TMP_DIR" | head -1)
+          fi
+          echo "解压目录: $EXTRACTED_DIR"
+          export HOME="/tmp/fake-home-remote-test"
+          mkdir -p "$HOME"
+          bash "${EXTRACTED_DIR}/install.sh" --source "${EXTRACTED_DIR}/fonts" 2>&1
+          INSTALLED=$(find "$HOME" -name "*.ttf" 2>/dev/null | wc -l | tr -d ' ')
+          echo "远程模式安装字体数: $INSTALLED"
+          [ "$INSTALLED" -gt 0 ] || exit 1
+
   # ========== Windows: install.ps1 测试 ==========
   test-windows:
     name: "Test install.ps1 (${{ matrix.os }})"
@@ -308,3 +334,16 @@ jobs:
             exit 1
           }
           Write-Host "✓ install.ps1 语法检查通过" -ForegroundColor Green
+
+      - name: 检查 remote-install.ps1 语法
+        shell: pwsh
+        run: |
+          $errors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseFile(
+            ".\tools\remote-install.ps1", [ref]$null, [ref]$errors)
+          if ($errors -and $errors.Count -gt 0) {
+            Write-Host "语法错误:" -ForegroundColor Red
+            $errors | ForEach-Object { Write-Host "$($_.Message)" -ForegroundColor Red }
+            exit 1
+          }
+          Write-Host "✓ tools\remote-install.ps1 语法检查通过" -ForegroundColor Green

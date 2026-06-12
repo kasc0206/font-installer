@@ -31,35 +31,59 @@
 
 ---
 
-## 使用方法
+## 🚀 一键安装（无需下载仓库）
+
+### macOS / Linux
+
+在终端中粘贴并运行以下命令：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kasc0206/font-installer/main/tools/remote-install.sh | bash
+```
+
+> 脚本会自动下载工具包 → 解密字体 → 安装到 `~/Library/Fonts`(macOS) 或 `~/.local/share/fonts`(Linux) → 清理临时文件。
+
+### Windows
+
+在 PowerShell 中粘贴并运行以下命令：
+
+```powershell
+powershell -c "iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/kasc0206/font-installer/main/tools/remote-install.ps1'))"
+```
+
+> **Windows 执行策略**：如果提示无法执行，请先运行：
+> ```powershell
+> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+> ```
+
+---
+
+## 手动安装（已下载仓库）
+
+如果你已经克隆了本仓库，也可以直接运行本地脚本：
 
 ### macOS / Linux
 
 ```bash
-# 1. 赋予执行权限
 chmod +x install.sh
-
-# 2. 一键安装（默认从 ./fonts/ 目录读取）
 ./install.sh
-
-# 3. 或指定其他字体目录
-./install.sh --source "/path/to/your/fonts"
 ```
 
 ### Windows
 
 ```powershell
-# 1. 一键安装（默认从 .\fonts\ 目录读取）
 .\install.ps1
-
-# 2. 或指定其他字体目录
-.\install.ps1 -Source "D:\Fonts"
 ```
 
-> **Windows 执行策略**：如果提示无法执行，请以管理员身份运行 PowerShell 并执行：
-> ```powershell
-> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-> ```
+### 自定义字体目录
+
+```bash
+# macOS / Linux
+./install.sh --source "/path/to/your/fonts"
+
+# Windows
+.\install.ps1 -Source "D:\Fonts"
+```
 
 ---
 
@@ -173,11 +197,14 @@ chmod +x install.sh
 
 ```
 font-installer/
-├── install.sh          # macOS / Linux 安装脚本（含解密功能）
-├── install.ps1         # Windows 安装脚本（含解密功能）
-├── README.md           # 本文件
-├── LICENSE             # MIT 许可证
-└── fonts/              # AES-256-CBC 加密的字体文件
+├── install.sh              # macOS / Linux 安装脚本（含解密功能）
+├── install.ps1             # Windows 安装脚本（含解密功能）
+├── tools/
+│   ├── remote-install.sh   # 远程一键安装脚本 (macOS/Linux)
+│   └── remote-install.ps1  # 远程一键安装脚本 (Windows)
+├── README.md               # 本文件
+├── LICENSE                 # MIT 许可证
+└── fonts/                  # AES-256-CBC 加密的字体文件
     ├── 仿宋_GB2312.ttf.enc
     ├── 方正仿宋_GBK.TTF.enc
     ├── 方正黑体_GBK.TTF.enc
